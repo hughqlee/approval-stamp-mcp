@@ -1,0 +1,17 @@
+import { handler } from "../lib/server.js";
+const H = { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18" };
+const call = async (body) => { const r = await handler.fetch(new Request("http://localhost/mcp", { method: "POST", headers: H, body: JSON.stringify(body) })); return [r.status, await r.text()]; };
+let fail = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
+const init = await call({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } }, clientInfo: { name: "t", version: "1" } } });
+ok(init[0] === 200 && /approval-stamp/.test(init[1]), "initialize");
+const list = await call({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+const names = [...list[1].matchAll(/"name":"([a-z_]+)"/g)].map(m => m[1]).filter(n => n !== "approval-stamp");
+ok(names.join() === "open_stamp", "only open_stamp is exposed (no agent placement tool): " + names.join());
+const res = await call({ jsonrpc: "2.0", id: 3, method: "resources/read", params: { uri: "ui://stamp/app.html" } });
+ok(res[0] === 200 && /text\/html;profile=mcp-app/.test(res[1]), "UI resource served, bytes " + res[1].length);
+ok(res[1].length < 4.5e6, "resource response under Vercel's 4.5 MB limit");
+const t = await call({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "open_stamp", arguments: {} } });
+ok(/Stamp app opened/.test(t[1]), "open_stamp returns text");
+const big = await handler.fetch(new Request("http://localhost/mcp", { method: "POST", headers: H, body: JSON.stringify({ jsonrpc: "2.0", id: 7, method: "tools/list", params: { pad: "x".repeat(100 * 1024) } }) }));
+ok(big.status === 413, "rejects body over 64 KiB (status " + big.status + ")");
+process.exit(fail ? 1 : 0);
