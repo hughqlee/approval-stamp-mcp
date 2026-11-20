@@ -6,6 +6,17 @@ The agent only opens the app. **It cannot place a stamp**: you read the document
 
 ![stamping a PDF](docs/stamp.png)
 
+## Install
+
+No account or sign-in. Endpoint: `https://approval-stamp-mcp.vercel.app/mcp`
+
+- **Claude** (web, desktop, mobile): Settings → Connectors → **Add custom connector** → name `Approval Stamp`, URL `https://approval-stamp-mcp.vercel.app/mcp`. Then turn it on in a chat under **+** → Connectors.
+- **ChatGPT**: Settings → Apps → Advanced settings → turn on **Developer mode**, then create an app with the MCP server URL above and authentication **None**.
+- **Claude Code**: `claude mcp add --transport http approval-stamp https://approval-stamp-mcp.vercel.app/mcp`
+- **Codex and other MCP clients**: add it as a remote (Streamable HTTP) MCP server. The interactive UI shows only in hosts that support MCP Apps.
+
+Guide: [https://approval-stamp-mcp.vercel.app](https://approval-stamp-mcp.vercel.app) · [Privacy policy](https://approval-stamp-mcp.vercel.app/privacy) · [Terms](https://approval-stamp-mcp.vercel.app/terms) · [한국어 README](README.ko.md)
+
 ## How it works
 
 - Open, paste or drop a PDF or image (PNG, JPEG, WebP) in the app. Pages render with pdf.js in the browser.
@@ -29,6 +40,11 @@ in the preview (those decoders need WebAssembly, which the default MCP Apps CSP 
 | --- | --- |
 | `open_stamp` | Opens the stamp app. There is deliberately no tool to place stamps. |
 
+## Privacy
+
+The document and the stamp images never leave the browser: not to this server, not to the AI model. After export the model gets one line
+(how many stamps on which pages). The server has no database and keeps nothing. Full policy: [approval-stamp-mcp.vercel.app/privacy](https://approval-stamp-mcp.vercel.app/privacy).
+
 ## Develop
 
 ```sh
@@ -40,6 +56,15 @@ node test/screenshot.cjs   # regenerates docs/*.png
 `npm run build` bundles `src/ui.js` (with pdf.js, pdf-lib and the Korean CMaps) into one HTML string at `lib/ui-html.js`,
 which `lib/server.js` serves as `ui://stamp/app.html`. pdf.js runs its worker on the main thread because the default
 MCP Apps CSP blocks worker scripts and fetch.
+
+## Directory listing
+
+- Public pages (guide, privacy, terms, icon) live in `site/` and are copied to `public/` by `npm run build`.
+- Listing screenshots: `node test/listing-shots.cjs` writes `docs/listing/*.png` (PNG, 2000px wide, app area only).
+- MCP Registry: `server.json` (`io.github.hughqlee/…`). `.github/workflows/publish-mcp.yml` publishes it (Actions → Run workflow, or push a `v*` tag).
+  Keep the version in `server.json`, `package.json` and `lib/server.js` in step; the server test checks it.
+- ChatGPT domain check: set the `OPENAI_APPS_CHALLENGE` environment variable in Vercel to the token from the OpenAI portal and redeploy;
+  the build serves it at `/.well-known/openai-apps-challenge`.
 
 ## Deploy
 

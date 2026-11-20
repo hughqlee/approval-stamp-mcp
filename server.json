@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.hughqlee/approval-stamp",
+  "title": "Approval Stamp",
+  "description": "Put your own stamp or signature image on a PDF or image by hand, then export the stamped file.",
+  "repository": {
+    "url": "https://github.com/hughqlee/approval-stamp-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "websiteUrl": "https://approval-stamp-mcp.vercel.app",
+  "icons": [
+    {
+      "src": "https://approval-stamp-mcp.vercel.app/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://approval-stamp-mcp.vercel.app/mcp"
+    }
+  ]
+}

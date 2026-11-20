@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Approval Stamp · 결재 도장</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="icon" href="/icon.png" type="image/png">
+<style>:root{--bg:#fff;--fg:#1f2328;--muted:#59636e;--bd:#d1d9e0;--well:#f6f8fa;--accent:#1f6feb;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;--bd:#3d444d;--well:#161b22;--accent:#4493f8;color-scheme:dark}}
+*{box-sizing:border-box}html,body{background:var(--bg);color:var(--fg)}
+body{font:16px/1.6 system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;margin:0 auto;max-width:760px;padding:24px 16px 64px}
+a{color:var(--accent)}header{display:flex;gap:14px;align-items:center;margin-bottom:8px}header img{width:56px;height:56px;border-radius:12px}
+h1{font-size:1.6rem;margin:0}h2{font-size:1.25rem;margin:2rem 0 .5rem;padding-top:.5rem;border-top:1px solid var(--bd)}h3{font-size:1.05rem;margin:1.2rem 0 .3rem}
+nav{font-size:.95rem;color:var(--muted);margin:4px 0 16px}nav a{margin-right:12px}
+code{font:.9em ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--well);border:1px solid var(--bd);border-radius:4px;padding:1px 5px;word-break:break-all}
+.lead{color:var(--muted);margin:0}.muted{color:var(--muted);font-size:.9rem}ol,ul{padding-left:1.4em}li{margin:.2em 0}
+table{border-collapse:collapse;width:100%;font-size:.95rem}td,th{border:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}
+q{quotes:"“" "”"}section[lang=ko] q{quotes:"‘" "’"}figure{margin:16px 0}figure img{max-width:100%;border:1px solid var(--bd);border-radius:8px}</style></head><body>
+<header><img src="/icon.png" alt=""><div><h1>Approval Stamp <span class="muted">· 결재 도장</span></h1><p class="lead">Put your own stamp or signature image on a PDF or image by hand, then export the stamped file.</p></div></header>
+<nav><a href="/">Guide</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/hughqlee/approval-stamp-mcp/issues">Support</a><a href="https://github.com/hughqlee/approval-stamp-mcp">Source</a></nav>
+<figure><img src="/screenshot.png" alt="Approval Stamp"></figure><p class="muted"><a href="#en">English</a> · <a href="#ko">한국어</a></p><section id="en" lang="en"><h2>Install</h2>
+<h3>Claude (web, desktop, mobile)</h3>
+<ol><li>Open Settings → Connectors → <b>Add custom connector</b>.</li><li>Name it <b>Approval Stamp</b> and enter <code>https://approval-stamp-mcp.vercel.app/mcp</code>. No sign-in is needed.</li><li>In a chat, turn it on under <b>+</b> → Connectors.</li></ol>
+<p class="muted">On Team and Enterprise plans an organisation owner may need to add the connector first.</p>
+<h3>ChatGPT</h3>
+<ol><li>Settings → Apps → Advanced settings: turn on <b>Developer mode</b>.</li><li><b>Create app</b>: MCP server URL <code>https://approval-stamp-mcp.vercel.app/mcp</code>, authentication <b>None</b>.</li></ol>
+<h3>Claude Code · Codex · other MCP clients</h3>
+<p>Add the remote MCP server (Streamable HTTP) at <code>https://approval-stamp-mcp.vercel.app/mcp</code>, for example <code>claude mcp add --transport http approval-stamp https://approval-stamp-mcp.vercel.app/mcp</code>. The interactive UI shows only in hosts that support MCP Apps.</p>
+<h2>How to use</h2><ol><li>Ask: <q>Open the approval stamp app.</q></li><li>Open, paste or drop a PDF or an image (PNG, JPEG, WebP).</li><li>Add your stamp image once. A photo or scan is fine: the white background is made transparent and the image is cropped.</li><li>Hover to preview, click to stamp. Drag to move, use the corner handle to resize, Delete to remove, Ctrl+Z to undo. Size is set in mm.</li><li>Export saves the original PDF with the stamp added (text stays text), or the image in its original size and format.</li></ol>
+<h2>Tools</h2><table><tr><th>Tool</th><th>What it does</th></tr><tr><td><code>open_stamp</code></td><td>Opens the stamp app. There is deliberately no tool that places a stamp: you read the document and stamp it yourself.</td></tr></table>
+<h2>Good to know</h2><ul><li>Encrypted or password-protected PDFs are refused. Digitally signed PDFs open with a warning, because adding a stamp invalidates the existing signature.</li><li>Some scanned PDFs with JPEG 2000 or JBIG2 images may look blank in the preview; the export still keeps them.</li></ul>
+<h2>Your data</h2><ul><li><b>The document.</b> Stays in your browser, inside the app. It is never uploaded to our server and never shared with the AI model.</li><li><b>Your stamp images.</b> Kept in your browser's local storage on your device so you can reuse them. They are never sent to our server or to the AI model. Remove a stamp in the app, or clear the site data, to delete it.</li><li><b>What the agent sees.</b> After you export, the app tells the chat's AI model one line, for example <q>3 stamps on pages 1, 2 of a 4-page document</q>. No document content, file name or stamp image.</li></ul>
+<p>Details: <a href="/privacy">Privacy policy</a>.</p>
+<h2>Support</h2><p>Report bugs or ask questions on <a href="https://github.com/hughqlee/approval-stamp-mcp/issues">GitHub Issues</a>. The app is free and needs no account.</p></section><section id="ko" lang="ko"><h2 style="border-top:2px solid var(--bd)">한국어</h2><p class="lead">PDF나 이미지에 내 도장이나 서명 이미지를 직접 찍고, 찍힌 파일을 내보냅니다.</p><h2>설치</h2>
+<h3>Claude (웹, 데스크톱, 모바일)</h3>
+<ol><li>설정 → 커넥터 → <b>사용자 지정 커넥터 추가</b>를 엽니다.</li><li>이름은 <b>결재 도장</b>, URL은 <code>https://approval-stamp-mcp.vercel.app/mcp</code>를 넣습니다. 로그인은 필요 없습니다.</li><li>대화에서 <b>+</b> → 커넥터에서 켜고 사용합니다.</li></ol>
+<p class="muted">Team, Enterprise 플랜은 조직 소유자가 먼저 커넥터를 추가해야 할 수 있습니다.</p>
+<h3>ChatGPT</h3>
+<ol><li>설정 → 앱 → 고급 설정에서 <b>개발자 모드</b>를 켭니다.</li><li><b>앱 만들기</b>에서 MCP 서버 URL에 <code>https://approval-stamp-mcp.vercel.app/mcp</code>, 인증은 <b>없음</b>을 고릅니다.</li></ol>
+<h3>Claude Code · Codex · 기타 MCP 클라이언트</h3>
+<p>원격 MCP 서버(Streamable HTTP) 주소 <code>https://approval-stamp-mcp.vercel.app/mcp</code>를 추가합니다. 예: <code>claude mcp add --transport http approval-stamp https://approval-stamp-mcp.vercel.app/mcp</code>. 화면(UI)은 MCP Apps를 지원하는 앱에서만 보입니다.</p>
+<h2>사용법</h2><ol><li><q>결재 도장 앱 열어 줘</q>라고 요청합니다.</li><li>PDF나 이미지(PNG, JPEG, WebP)를 열거나 붙여넣거나 끌어다 놓습니다.</li><li>내 도장 이미지를 한 번 추가합니다. 사진이나 스캔도 됩니다. 흰 배경은 투명해지고 여백은 잘립니다.</li><li>마우스를 올리면 미리 보이고, 클릭하면 찍힙니다. 끌어서 옮기고, 모서리 손잡이로 크기를 바꾸고, Delete로 지우고, Ctrl+Z로 되돌립니다. 크기는 mm 단위입니다.</li><li>내보내기는 원본 PDF에 도장만 더한 파일(글자는 글자 그대로), 또는 원래 크기와 형식의 이미지를 저장합니다.</li></ol>
+<h2>도구</h2><table><tr><th>도구</th><th>하는 일</th></tr><tr><td><code>open_stamp</code></td><td>도장 앱을 엽니다. 도장을 찍는 도구는 일부러 없습니다. 문서를 읽고 직접 찍는 것이 목적입니다.</td></tr></table>
+<h2>알아 둘 점</h2><ul><li>암호가 걸린 PDF는 열지 않습니다. 전자서명된 PDF는 경고와 함께 열립니다. 도장을 더하면 기존 서명이 무효가 되기 때문입니다.</li><li>JPEG 2000이나 JBIG2 이미지가 든 일부 스캔 PDF는 미리보기가 비어 보일 수 있지만, 내보낸 파일에는 그대로 남습니다.</li></ul>
+<h2>데이터</h2><ul><li><b>문서.</b> 브라우저의 앱 안에만 있습니다. 저희 서버로 올라가지 않고 AI 모델에도 공유되지 않습니다.</li><li><b>도장 이미지.</b> 다시 쓸 수 있도록 내 기기 브라우저의 로컬 저장소에 보관됩니다. 저희 서버나 AI 모델로 보내지 않습니다. 앱에서 도장을 지우거나 사이트 데이터를 지우면 삭제됩니다.</li><li><b>에이전트가 보는 것.</b> 내보낸 뒤 앱은 채팅의 AI 모델에 한 줄만 알립니다. 예: <q>4쪽 문서의 1, 2쪽에 도장 3개</q>. 문서 내용, 파일 이름, 도장 이미지는 보내지 않습니다.</li></ul>
+<p>자세한 내용은 <a href="/privacy#ko">개인정보처리방침</a>을 보세요.</p>
+<h2>문의</h2><p>버그나 질문은 <a href="https://github.com/hughqlee/approval-stamp-mcp/issues">GitHub Issues</a>에 남겨 주세요. 무료이고, 계정이나 로그인이 필요 없습니다.</p></section>
+</body></html>
