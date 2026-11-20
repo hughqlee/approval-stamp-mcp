@@ -8,7 +8,23 @@ const dir = "node_modules/pdfjs-dist/cmaps";
 const names = fs.readdirSync(dir).filter(n => /^(KSC|UniKS|Adobe-Korea1)/.test(n) && n.endsWith(".bcmap"));
 const map = Object.fromEntries(names.map(n => [n.replace(/\.bcmap$/, ""), fs.readFileSync(path.join(dir, n)).toString("base64")]));
 fs.writeFileSync("src/cmaps.gen.js", "export default " + JSON.stringify(map) + ";\n");
-const r = await build({ entryPoints: ["src/ui.js"], bundle: true, format: "esm", minify: true, write: false, target: "es2022", legalComments: "none", logLevel: "warning" });
+// pdf.js decodes CCITT fax (black-and-white scans), JBIG2 and JPEG 2000 images with WebAssembly, falling back to
+// plain-JS decoders that it loads with a dynamic import from `wasmUrl`. The default MCP Apps CSP blocks both
+// WebAssembly and that import, so those images vanish. Bundle the plain-JS decoders instead (no eval in them).
+const noWasmDecoders = {
+  name: "pdfjs-nowasm-decoders",
+  setup(b) {
+    b.onLoad({ filter: /pdfjs-dist[\\/]build[\\/]pdf\.worker\.mjs$/ }, async (args) => {
+      const src = await fs.promises.readFile(args.path, "utf8");
+      const re = /await import\(\s*\/\*webpackIgnore: true\*\/\s*\/\*@vite-ignore\*\/\s*`\$\{WasmImage\.#wasmUrl\}\$\{this\._noWasmFilename\}`\)/;
+      if (!re.test(src)) throw new Error("pdf.js worker changed: no-wasm decoder import not found, update build.mjs");
+      const head = 'import __jbig2 from "pdfjs-dist/wasm/jbig2_nowasm_fallback.js";\nimport __openjpeg from "pdfjs-dist/wasm/openjpeg_nowasm_fallback.js";\n';
+      const contents = head + src.replace(re, '({ default: { "jbig2_nowasm_fallback.js": __jbig2, "openjpeg_nowasm_fallback.js": __openjpeg }[this._noWasmFilename] })');
+      return { contents, loader: "js" };
+    });
+  },
+};
+const r = await build({ entryPoints: ["src/ui.js"], bundle: true, plugins: [noWasmDecoders], format: "esm", minify: true, write: false, target: "es2022", legalComments: "none", logLevel: "warning" });
 const js = r.outputFiles[0].text.replace(/<\/script/g, "<\\/script");
 const html = fs.readFileSync("src/ui.html", "utf8").replace("/*BUNDLE*/", () => js);
 fs.mkdirSync("lib", { recursive: true });

@@ -31,8 +31,10 @@ Guide: [https://approval-stamp-mcp.vercel.app](https://approval-stamp-mcp.vercel
 - English / Korean and light / dark follow the host until the user toggles them.
 
 Not supported: encrypted / password-protected PDFs (refused), PDF form filling. Digitally signed PDFs open with a warning,
-because adding a stamp invalidates the existing signature. Some scanned PDFs with JPEG 2000 / JBIG2 images may show blank
-in the preview (those decoders need WebAssembly, which the default MCP Apps CSP does not allow); the export still keeps them.
+because adding a stamp invalidates the existing signature.
+
+Scanned PDFs (CCITT fax, JBIG2, JPEG 2000 images) render with pdf.js's plain-JS decoders, which `build.mjs` bundles in:
+pdf.js normally uses WebAssembly or a dynamic import for them, and the default MCP Apps CSP blocks both.
 
 ## Tools
 

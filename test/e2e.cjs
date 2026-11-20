@@ -25,6 +25,17 @@ async function makePdfs() {
   const sd = await PDFDocument.create(); sd.addPage([300, 300]);
   sd.context.register(sd.context.obj({ Type: "Sig", Filter: "Adobe.PPKLite", ByteRange: [0, 10, 20, 30] }));
   fs.writeFileSync(path.join(out, "signed.pdf"), await sd.save({ useObjectStreams: false }));
+  // black-and-white scan: an 8x8 all-black CCITT G3 (K=0) image, the format office scanners use
+  const { PDFName, pushGraphicsState, popGraphicsState, concatTransformationMatrix, drawObject } = await import("pdf-lib");
+  const cd = await PDFDocument.create(); const cp = cd.addPage([300, 300]);
+  const row = "00110101" + "000101"; // white run 0, black run 8
+  const bits = row.repeat(8).padEnd(Math.ceil(row.length * 8 / 8) * 8, "0");
+  const data = Uint8Array.from(bits.match(/.{8}/g), b => parseInt(b, 2));
+  const im = cd.context.register(cd.context.stream(data, { Type: "XObject", Subtype: "Image", Width: 8, Height: 8, ColorSpace: "DeviceGray", BitsPerComponent: 1,
+    Filter: "CCITTFaxDecode", DecodeParms: { K: 0, Columns: 8, Rows: 8 } }));
+  const nm = cp.node.newXObject("Im", im);
+  cp.pushOperators(pushGraphicsState(), concatTransformationMatrix(200, 0, 0, 200, 50, 50), drawObject(nm), popGraphicsState());
+  fs.writeFileSync(path.join(out, "ccitt.pdf"), await cd.save());
 }
 
 (async () => {
@@ -158,6 +169,11 @@ async function makePdfs() {
   ok((await fr.getAttribute("#st", "class")) === "err", "encrypted PDF refused with an error");
   await fr.setInputFiles("#file", path.join(out, "signed.pdf")); await waitSt(fr, /digital signature/);
   ok((await fr.getAttribute("#st", "class")) === "warn" && (await fr.evaluate(() => document.querySelectorAll(".page").length)) === 1, "signed PDF opens with a warning");
+
+  // 8b. scanned (CCITT fax) images render without WebAssembly or network
+  await fr.setInputFiles("#file", path.join(out, "ccitt.pdf")); await waitSt(fr, /Opened ccitt\.pdf/);
+  await fr.waitForFunction(() => document.querySelector(".page canvas").width > 0); await pg.waitForTimeout(400);
+  ok(color(await px(fr, 0, 0.5, 0.5)) !== "white" && (await px(fr, 0, 0.5, 0.5)) === "0,0,0", "CCITT fax scan image renders: " + await px(fr, 0, 0.5, 0.5));
   await pg.close();
 
   // 9. i18n + theme
