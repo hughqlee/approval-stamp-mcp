@@ -27,7 +27,13 @@ Guide: [https://approval-stamp-mcp.vercel.app](https://approval-stamp-mcp.vercel
 - Export (via `ui/download-file`):
   - PDF: the original PDF with the stamp images added (pdf-lib). Text stays text; rotated pages are handled.
   - Image: same size and format (JPEG stays JPEG, otherwise PNG).
-- The agent only gets a one-line summary after export ("3 stamps on pages 1, 2"), never the document or the stamp.
+- Hosts without `ui/download-file` (Claude today) get a result panel instead. A sandboxed iframe can show and copy an
+  image but cannot save or copy a PDF, so:
+  - **Send PDF to chat** puts the stamped PDF in the conversation as a file (`ui/message` resource), shown only when the
+    host says it accepts resources; download it from the chat.
+  - The stamped pages are always shown as ~200 dpi images to right-click save or copy (the `clipboardWrite` permission
+    is requested), or to send to the chat as images. These are pictures, so their text is not selectable.
+- Unless the user presses a "send to chat" button, the agent only gets a one-line summary after export ("3 stamps on pages 1, 2"), never the document or the stamp.
 - English / Korean and light / dark follow the host until the user toggles them.
 
 Not supported: encrypted / password-protected PDFs (refused), PDF form filling. Digitally signed PDFs open with a warning,

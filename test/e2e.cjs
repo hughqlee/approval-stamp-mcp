@@ -46,11 +46,11 @@ async function makePdfs() {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1000, height: 900 }, locale: "en-US", colorScheme: "light" });
   const csp = [];
-  const open = async (c = ctx) => {
+  const open = async (c = ctx, caps) => {
     const pg = await c.newPage();
     pg.on("pageerror", e => ok(false, "page error: " + e.message));
     pg.on("console", m => { if (/Content.Security|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 160)); });
-    await pg.goto(base); await pg.evaluate(h => startHost(h), ui);
+    await pg.goto(base); await pg.evaluate(([h, c]) => startHost(h, c), [ui, caps]);
     const fr = pg.frames()[1]; await fr.waitForFunction(() => /^(Ready|준비됨)$/.test(document.getElementById("st").textContent), null, { timeout: 20000 });
     return [pg, fr];
   };
@@ -146,6 +146,38 @@ async function makePdfs() {
     const L = color(await px(fr, i, s.x + s.w * 0.3, cy)), R = color(await px(fr, i, s.x + s.w * 0.7, cy)), out1 = color(await px(fr, i, s.x - 0.02, cy));
     ok(L === "red" && R === "blue" && out1 === "white", `page ${i + 1} (rot ${[0, 90, 180, 270][i]}): stamp upright where it was placed (${L}/${R}/${out1})`);
   }
+  await pg.close();
+
+  // 6b. host without ui/download-file (Claude today): result panel, PDF to chat as a file, page images
+  const NO_DL = { updateModelContext: { text: {} }, message: { text: {}, image: {}, resource: {} }, serverTools: {} };
+  [pg, fr] = await open(ctx, NO_DL);
+  await fr.setInputFiles("#file", path.join(out, "doc.pdf")); await waitSt(fr, /Opened doc\.pdf/);
+  await clickPage(pg, fr, 0, 0.3, 0.4); await clickPage(pg, fr, 2, 0.5, 0.5);
+  await fr.click("#export"); await waitSt(fr, /panel below/);
+  ok(await fr.isVisible("#out") && /not supported/.test(await fr.textContent("#outWhy")), "no download support: result panel explains why");
+  ok((await fr.evaluate(() => [...document.querySelectorAll("#outShots figcaption")].map(c => c.firstChild.textContent.trim()).join())) === "Page 1,Page 3", "panel shows images of the stamped pages only");
+  { const s = await fr.evaluate(() => ({ ...__stampApp.stamps[0] }));
+    const c = await fr.evaluate(async s => { const i = document.querySelector("#outShots img"); await i.decode(); const c = document.createElement("canvas"); c.width = i.naturalWidth; c.height = i.naturalHeight; const g = c.getContext("2d"); g.drawImage(i, 0, 0);
+      const p = (fx, fy) => [...g.getImageData(fx * c.width, fy * c.height, 1, 1).data].slice(0, 3).join(); return { w: c.width, L: p(s.x + s.w * 0.3, s.y + s.h / 2), R: p(s.x + s.w * 0.7, s.y + s.h / 2) }; }, s);
+    ok(c.w >= 1600 && color(c.L) === "red" && color(c.R) === "blue", `page image is high resolution (${c.w}px wide) and shows the stamp`); }
+  ok(await fr.isVisible("#sendPdf") && (await fr.textContent("#sendImg")) === "Send pages as images", "both send buttons offered when the host accepts files and images");
+  await fr.click("#sendPdf"); await waitSt(fr, /Sent to the chat/);
+  { const m = await pg.evaluate(() => { const p = __lastMsg; const r = p.content[0].resource; return { types: p.content.map(c => c.type).join(), mime: r.mimeType, uri: r.uri, blob: r.blob }; });
+    const { PDFDocument } = await import("pdf-lib"); const d = await PDFDocument.load(Buffer.from(m.blob, "base64"));
+    ok(m.types === "resource,text" && m.mime === "application/pdf" && /doc-stamped\.pdf$/.test(m.uri) && d.getPageCount() === 4, "Send PDF puts the stamped PDF in the chat as a file"); }
+  await fr.click("#sendImg"); await waitSt(fr, /Sent to the chat/);
+  ok((await pg.evaluate(() => __lastMsg.content.map(c => c.type).join())) === "image,image,text", "Send pages sends one image per stamped page");
+  await pg.evaluate(() => { window.__msgResult = { isError: true }; });
+  await fr.click("#sendPdf"); await waitSt(fr, /Could not send the PDF/);
+  ok((await fr.getAttribute("#st", "class")) === "err", "a refused PDF send says so and points to the page images");
+  await fr.click("#outShots button"); await pg.waitForTimeout(300);
+  ok(/Copied|Copy was blocked/.test(await st(fr)), "copy button gives feedback: " + await st(fr));
+  await pg.close();
+  // host that takes images but not files: no "Send PDF" button
+  [pg, fr] = await open(ctx, { message: { text: {}, image: {} } });
+  await fr.setInputFiles("#file", path.join(out, "doc.pdf")); await waitSt(fr, /Opened doc\.pdf/);
+  await clickPage(pg, fr, 0, 0.3, 0.4); await fr.click("#export"); await waitSt(fr, /panel below/);
+  ok(!(await fr.isVisible("#sendPdf")) && await fr.isVisible("#sendImg"), "without file support only the image route is offered");
   await pg.close();
 
   // 7. stamp library survives a new window; image documents export as images
