@@ -28,6 +28,11 @@ const T = {
         needStamp: "Add a stamp image first (+ Add stamp)", stampAdded: "Stamp added and saved in this browser", stampSession: "Stamp added (this browser cannot save it; it lasts until the window closes)",
         stampRemoved: "Stamp removed from this browser", placed: p => `Stamped page ${p}. Drag to move, corner to resize, Delete to remove.`,
         exported: f => `Exported ${f}`, exporting: "Exporting…", failed: m => `Failed: ${m}`,
+        useBelow: "Save it from the panel below", outTitle: "Stamped result", outWhy: r => `Direct download is unavailable (${r}).`, noDownload: "not supported in this app", denied: "cancelled or blocked",
+        outHint: "Right-click (or long-press) the image to save or copy it.", outHintPdf: "Send the PDF to the chat and download it there, or right-click a page image to save it (images are not selectable text).",
+        sendPdf: "Send PDF to chat", sendPages: "Send pages as images", send: "Send to chat", copy: "Copy", close: "Close", pageN: n => `Page ${n}`,
+        sentText: n => `Stamped document: ${n}`, sent: "Sent to the chat", rejected: "the chat did not accept it", sendPdfFailed: m => `Could not send the PDF (${m}). Use the page images instead.`,
+        copied: "Copied to the clipboard", copyFailed: "Copy was blocked: right-click the image instead",
         encrypted: "This PDF is password-protected or encrypted, so it cannot be stamped.", password: "This PDF needs a password to open.",
         signed: "This PDF has a digital signature. Adding a stamp will invalidate that signature.", badFile: "Not a PDF or image (PNG, JPEG, WebP)",
         tooBig: "File is larger than 100 MB", info: (s, n, seen) => `Stamps ${s} · pages reviewed ${seen}/${n}`, unseen: n => `${n} page(s) not viewed yet`,
@@ -38,6 +43,11 @@ const T = {
         needStamp: "먼저 도장 이미지를 추가하세요 (+ 도장 추가)", stampAdded: "도장을 추가해 이 브라우저에 보관했습니다", stampSession: "도장 추가됨 (이 브라우저에는 보관할 수 없어 창을 닫으면 사라집니다)",
         stampRemoved: "도장을 이 브라우저에서 지웠습니다", placed: p => `${p}쪽에 찍음. 끌어서 이동, 모서리로 크기 조절, Delete로 삭제.`,
         exported: f => `${f} 내보냄`, exporting: "내보내는 중…", failed: m => `실패: ${m}`,
+        useBelow: "아래 창에서 저장하세요", outTitle: "도장 찍은 결과", outWhy: r => `바로 다운로드할 수 없습니다 (${r}).`, noDownload: "이 앱에서 지원 안 함", denied: "취소되었거나 차단됨",
+        outHint: "이미지를 우클릭(모바일은 길게 누르기)해서 저장하거나 복사하세요.", outHintPdf: "PDF를 채팅으로 보내 거기서 내려받거나, 페이지 이미지를 우클릭해서 저장하세요 (이미지는 글자 선택이 안 됩니다).",
+        sendPdf: "PDF를 채팅으로 보내기", sendPages: "페이지 이미지를 채팅으로 보내기", send: "채팅으로 보내기", copy: "복사", close: "닫기", pageN: n => `${n}쪽`,
+        sentText: n => `도장 찍은 문서: ${n}`, sent: "채팅으로 보냈습니다", rejected: "채팅에서 받아주지 않음", sendPdfFailed: m => `PDF를 보내지 못했습니다 (${m}). 페이지 이미지를 쓰세요.`,
+        copied: "클립보드에 복사됨", copyFailed: "복사가 막혔습니다. 이미지를 우클릭하세요",
         encrypted: "암호가 걸렸거나 보호된 PDF라 도장을 찍을 수 없습니다.", password: "열려면 비밀번호가 필요한 PDF입니다.",
         signed: "전자서명된 PDF입니다. 도장을 찍으면 기존 전자서명은 무효가 됩니다.", badFile: "PDF나 이미지(PNG, JPEG, WebP)가 아닙니다",
         tooBig: "100MB보다 큰 파일입니다", info: (s, n, seen) => `도장 ${s}개 · 확인한 쪽 ${seen}/${n}`, unseen: n => `아직 안 본 쪽 ${n}개`,
@@ -163,7 +173,7 @@ async function openFile(file) {
       next = { kind: "image", name: file.name || "image.png", mime: file.type, bitmap, pages: [{ w: bitmap.width, h: bitmap.height, mmW: 210 }] };
     }
     doc?.task?.destroy();
-    doc = next; stamps = []; undoStack = []; selected = null; seen = new Set();
+    doc = next; stamps = []; undoStack = []; selected = null; seen = new Set(); $("out").hidden = true; last = null;
     buildPages();
     const signed = isPdf && hasSignature(bytes);
     signed ? warn("signed") : log("loaded", doc.name, doc.pages.length);
@@ -201,7 +211,7 @@ const drawn = new Set();
 async function drawPage(i) {
   if (drawn.has(i)) return; drawn.add(i);
   const el = $("pages").children[i], cv = el.querySelector("canvas");
-  const dpr = Math.min(2, window.devicePixelRatio || 1), cssW = el.clientWidth || 800, p = doc.pages[i];
+  const d = doc, dpr = Math.min(2, window.devicePixelRatio || 1), cssW = el.clientWidth || 800, p = doc.pages[i];
   const scale = Math.min(4, cssW * dpr / p.w);
   try {
     if (doc.kind === "pdf") {
@@ -209,7 +219,10 @@ async function drawPage(i) {
       cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
       await page.render({ canvas: cv, canvasContext: cv.getContext("2d"), viewport: vp }).promise;
     } else { cv.width = p.w; cv.height = p.h; cv.getContext("2d").drawImage(doc.bitmap, 0, 0); }
-  } catch (ex) { drawn.delete(i); err("failed", ex.message); }
+  } catch (ex) {
+    if (d !== doc || ex.name === "RenderingCancelledException") return; // a newer document replaced this one
+    drawn.delete(i); err("failed", ex.message);
+  }
 }
 const docOf = () => doc; // for tests
 window.__stampApp = { get doc() { return docOf(); }, get stamps() { return stamps; }, get seen() { return [...seen]; } };
@@ -328,16 +341,92 @@ export async function buildOutput() {
   return { b64: data, mime, name: baseName(doc.name) + "-stamped." + (jpeg ? "jpg" : "png") };
 }
 const toB64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
+const caps = () => app.getHostCapabilities() || {};
+const summary = how => { // only a summary goes to the agent: no document content, no stamp image
+  const pages = [...new Set(stamps.map(s => s.page + 1))].sort((a, b) => a - b);
+  app.updateModelContext({ content: [{ type: "text", text: `User placed ${stamps.length} stamp(s) by hand on page(s) ${pages.join(", ")} of a ${doc.pages.length}-page document and ${how}.` }] }).catch(() => {});
+};
+// Result panel for hosts without ui/download-file (Claude today). A browser can show and copy an image
+// but cannot save or copy a PDF from a sandboxed iframe, so a PDF goes to the chat as a file when the host
+// accepts files in ui/message, and the stamped pages are always shown as images to save or copy.
+let last = null; // { o, shots: [{ page, url }] }
+const MAX_SHOTS = 10;
+async function pageShots(o) {
+  if (o.mime !== "application/pdf") return [{ page: 1, url: `data:${o.mime};base64,${o.b64}` }];
+  const pages = [...new Set(stamps.map(s => s.page))].sort((a, b) => a - b).slice(0, MAX_SHOTS);
+  const task = pdfjs.getDocument({ ...PDF_OPTS, data: o.bytes.slice() }), pdf = await task.promise, out = [];
+  try {
+    for (const i of pages) {
+      const page = await pdf.getPage(i + 1), v1 = page.getViewport({ scale: 1 });
+      const scale = Math.min(200 / 72, Math.sqrt(16e6 / (v1.width * v1.height))); // ~200 dpi, at most 16 MP
+      const vp = page.getViewport({ scale }), c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvas: c, canvasContext: g, viewport: vp }).promise;
+      out.push({ page: i + 1, url: c.toDataURL("image/png") });
+    }
+  } finally { task.destroy(); }
+  return out;
+}
+function showOut(o, shots, reason) {
+  last = { o, shots };
+  const isPdf = o.mime === "application/pdf", m = caps().message || {};
+  $("outWhy").textContent = t("outWhy", reason) + " " + (isPdf ? t("outHintPdf") : t("outHint"));
+  $("sendPdf").hidden = !(isPdf && m.resource);
+  $("sendImg").hidden = !m.image;
+  $("sendImg").dataset.i18n = isPdf ? "sendPages" : "send"; $("sendImg").textContent = t($("sendImg").dataset.i18n);
+  const box = $("outShots"); box.textContent = "";
+  for (const sh of shots) {
+    const f = document.createElement("figure"), im = document.createElement("img"), cap = document.createElement("figcaption"), cp = document.createElement("button");
+    im.src = sh.url; im.alt = `page ${sh.page}`; cap.textContent = isPdf ? t("pageN", sh.page) + " " : "";
+    cp.textContent = t("copy"); cp.onclick = () => copyImage(sh.url); cap.appendChild(cp);
+    f.append(im, cap); box.appendChild(f);
+  }
+  $("out").hidden = false; $("out").scrollIntoView({ block: "nearest" });
+}
+async function copyImage(url) {
+  try {
+    const blob = await (await createImageBitmap(new Blob([b64ToBytes(url.split(",")[1])], { type: url.slice(5, url.indexOf(";")) })).then(bmp => {
+      const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+      return new Promise(res => c.toBlob(res, "image/png")); }));
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    log("copied"); summary("copied it");
+  } catch { warn("copyFailed"); }
+}
+$("sendPdf").onclick = async () => {
+  if (!last) return; const { o } = last;
+  try {
+    const r = await app.sendMessage({ role: "user", content: [
+      { type: "resource", resource: { uri: "file:///" + encodeURIComponent(o.name), mimeType: o.mime, blob: toB64(o.bytes) } },
+      { type: "text", text: t("sentText", o.name) }] });
+    if (r?.isError) throw new Error(t("rejected"));
+    log("sent"); summary("sent the stamped PDF to the chat");
+  } catch (ex) { err("sendPdfFailed", ex.message); }
+};
+$("sendImg").onclick = async () => {
+  if (!last) return; const { o, shots } = last;
+  try {
+    const r = await app.sendMessage({ role: "user", content: [
+      ...shots.map(sh => ({ type: "image", data: sh.url.split(",")[1], mimeType: sh.url.slice(5, sh.url.indexOf(";")) })),
+      { type: "text", text: t("sentText", o.name) }] });
+    if (r?.isError) throw new Error(t("rejected"));
+    log("sent"); summary("sent images of the stamped pages to the chat");
+  } catch (ex) { err("failed", ex.message); }
+};
+$("closeOut").onclick = () => { $("out").hidden = true; };
 $("export").onclick = async () => {
   if (!doc || !stamps.length) return;
   $("export").disabled = true; log("exporting");
   try {
     const o = await buildOutput();
-    await app.downloadFile({ contents: [{ type: "resource", resource: { uri: "file:///" + encodeURIComponent(o.name), mimeType: o.mime, blob: o.b64 || toB64(o.bytes) } }] });
-    log("exported", o.name);
-    // Only a summary goes to the agent: no document content, no stamp image.
-    const pages = [...new Set(stamps.map(s => s.page + 1))].sort((a, b) => a - b);
-    app.updateModelContext({ content: [{ type: "text", text: `User placed ${stamps.length} stamp(s) by hand on page(s) ${pages.join(", ")} of a ${doc.pages.length}-page document and exported it.` }] }).catch(() => {});
+    let reason = t("noDownload");
+    if (caps().downloadFile) {
+      try {
+        const r = await app.downloadFile({ contents: [{ type: "resource", resource: { uri: "file:///" + encodeURIComponent(o.name), mimeType: o.mime, blob: o.b64 || toB64(o.bytes) } }] });
+        if (!r?.isError) { log("exported", o.name); summary("exported it"); return; }
+        reason = t("denied");
+      } catch (ex) { reason = ex.message; }
+    }
+    showOut(o, await pageShots(o), reason); log("useBelow");
   } catch (ex) { err("failed", ex.message); }
   finally { updateButtons(); }
 };

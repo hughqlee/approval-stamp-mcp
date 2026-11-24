@@ -35,6 +35,15 @@ button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(
 .stamp.sel .h,.stamp.sel .del{display:block}
 #hint{margin-top:4px;border:1px dashed var(--btn-bd);border-radius:6px;padding:40px 12px;text-align:center;color:var(--muted);line-height:1.6}
 #hint[hidden]{display:none}
+#out{border:1px solid var(--btn-bd);border-radius:8px;padding:8px;margin:6px 0;background:var(--btn)}
+#out[hidden]{display:none}
+.outbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:4px}
+.outbar button[hidden]{display:none}
+#outWhy{color:var(--muted);font-size:13px;line-height:1.4}
+#outShots{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;max-height:520px;overflow:auto}
+#outShots figure{margin:0;display:flex;flex-direction:column;gap:4px;max-width:100%}
+#outShots img{display:block;max-width:100%;max-height:440px;border:1px solid var(--page-bd);background:#fff}
+#outShots figcaption{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
 </style></head><body>
 <div id="bar">
 <label class="file"><input type="file" id="file" accept="application/pdf,image/png,image/jpeg,image/webp"><span data-i18n="open"></span></label>
@@ -46,6 +55,8 @@ button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(
 <span class="sep"></span>
 <button id="lang" title="Language / 언어"></button><button id="theme"></button>
 <span id="st"></span></div>
+<div id="out" hidden><div class="outbar"><strong data-i18n="outTitle"></strong><span class="sep"></span><button id="sendPdf" data-i18n="sendPdf"></button><button id="sendImg" data-i18n="send"></button><button id="closeOut" data-i18n="close"></button></div>
+<div id="outWhy"></div><div id="outShots"></div></div>
 <div id="hint" data-i18n="hint"></div>
 <div id="pages"></div>
 <div id="info"></div>
