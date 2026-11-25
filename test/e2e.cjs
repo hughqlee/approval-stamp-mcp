@@ -46,11 +46,11 @@ async function makePdfs() {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1000, height: 900 }, locale: "en-US", colorScheme: "light" });
   const csp = [];
-  const open = async (c = ctx, caps) => {
+  const open = async (c = ctx, caps, info) => {
     const pg = await c.newPage();
     pg.on("pageerror", e => ok(false, "page error: " + e.message));
     pg.on("console", m => { if (/Content.Security|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 160)); });
-    await pg.goto(base); await pg.evaluate(([h, c]) => startHost(h, c), [ui, caps]);
+    await pg.goto(base); await pg.evaluate(([h, c, i]) => startHost(h, c, i), [ui, caps, info]);
     const fr = pg.frames()[1]; await fr.waitForFunction(() => /^(Ready|준비됨)$/.test(document.getElementById("st").textContent), null, { timeout: 20000 });
     return [pg, fr];
   };
@@ -172,6 +172,20 @@ async function makePdfs() {
   ok((await fr.getAttribute("#st", "class")) === "err", "a refused PDF send says so and points to the page images");
   await fr.click("#outShots button"); await pg.waitForTimeout(300);
   ok(/Copied|Copy was blocked/.test(await st(fr)), "copy button gives feedback: " + await st(fr));
+  await pg.close();
+  // Claude documents ui/message as text only (8,000 chars): never offer to send files or images there
+  [pg, fr] = await open(ctx, NO_DL, { name: "Claude", version: "1" });
+  await fr.setInputFiles("#file", path.join(out, "doc.pdf")); await waitSt(fr, /Opened doc\.pdf/);
+  await clickPage(pg, fr, 0, 0.3, 0.4); await fr.click("#export"); await waitSt(fr, /panel below/);
+  ok(!(await fr.isVisible("#sendPdf")) && !(await fr.isVisible("#sendImg")) && /cannot leave the app/.test(await fr.textContent("#outWhy")), "in Claude without downloads: no send buttons, page images explained");
+  ok(/Host: Claude 1 · file download: no/.test(await fr.textContent("#outHost")), "panel names the host and its capabilities: " + await fr.textContent("#outHost"));
+  await pg.close();
+  // Korean file names stay readable in the download (Claude keeps the uri's last segment literally)
+  [pg, fr] = await open();
+  await fr.setInputFiles("#file", { name: "결재 문서.pdf", mimeType: "application/pdf", buffer: fs.readFileSync(path.join(out, "doc.pdf")) });
+  await waitSt(fr, /Opened 결재 문서\.pdf/);
+  await clickPage(pg, fr, 0, 0.3, 0.4); await fr.click("#export"); await waitSt(fr, /Exported/);
+  ok((await pg.evaluate(() => __log.filter(e => e.ev === "download").pop().uri)) === "file:///결재 문서-stamped.pdf", "download file name is literal, not percent-encoded");
   await pg.close();
   // host that takes images but not files: no "Send PDF" button
   [pg, fr] = await open(ctx, { message: { text: {}, image: {} } });
