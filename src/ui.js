@@ -30,6 +30,8 @@ const T = {
         exported: f => `Exported ${f}`, exporting: "Exporting…", failed: m => `Failed: ${m}`,
         useBelow: "Save it from the panel below", outTitle: "Stamped result", outWhy: r => `Direct download is unavailable (${r}).`, noDownload: "not supported in this app", denied: "cancelled or blocked",
         outHint: "Right-click (or long-press) the image to save or copy it.", outHintPdf: "Send the PDF to the chat and download it there, or right-click a page image to save it (images are not selectable text).",
+        outHintPdfNoSend: "Here the PDF file itself cannot leave the app: this host offers no file download and does not take files in the chat. Right-click a page image to save or copy it (images are not selectable text).",
+        dlTimeout: "the download dialog was not answered in 10 minutes", hostLine: (h, dl, msg) => `Host: ${h} · file download: ${dl ? "yes" : "no"} · chat accepts: ${msg}`,
         sendPdf: "Send PDF to chat", sendPages: "Send pages as images", send: "Send to chat", copy: "Copy", close: "Close", pageN: n => `Page ${n}`,
         sentText: n => `Stamped document: ${n}`, sent: "Sent to the chat", rejected: "the chat did not accept it", sendPdfFailed: m => `Could not send the PDF (${m}). Use the page images instead.`,
         copied: "Copied to the clipboard", copyFailed: "Copy was blocked: right-click the image instead",
@@ -45,6 +47,8 @@ const T = {
         exported: f => `${f} 내보냄`, exporting: "내보내는 중…", failed: m => `실패: ${m}`,
         useBelow: "아래 창에서 저장하세요", outTitle: "도장 찍은 결과", outWhy: r => `바로 다운로드할 수 없습니다 (${r}).`, noDownload: "이 앱에서 지원 안 함", denied: "취소되었거나 차단됨",
         outHint: "이미지를 우클릭(모바일은 길게 누르기)해서 저장하거나 복사하세요.", outHintPdf: "PDF를 채팅으로 보내 거기서 내려받거나, 페이지 이미지를 우클릭해서 저장하세요 (이미지는 글자 선택이 안 됩니다).",
+        outHintPdfNoSend: "이 환경에서는 PDF 파일 자체를 앱 밖으로 꺼낼 수 없습니다. 파일 다운로드를 제공하지 않고, 채팅도 파일을 받지 않습니다. 페이지 이미지를 우클릭해서 저장하거나 복사하세요 (이미지는 글자 선택이 안 됩니다).",
+        dlTimeout: "10분 동안 다운로드 창에 응답이 없음", hostLine: (h, dl, msg) => `환경: ${h} · 파일 다운로드: ${dl ? "지원" : "미지원"} · 채팅이 받는 형식: ${msg}`,
         sendPdf: "PDF를 채팅으로 보내기", sendPages: "페이지 이미지를 채팅으로 보내기", send: "채팅으로 보내기", copy: "복사", close: "닫기", pageN: n => `${n}쪽`,
         sentText: n => `도장 찍은 문서: ${n}`, sent: "채팅으로 보냈습니다", rejected: "채팅에서 받아주지 않음", sendPdfFailed: m => `PDF를 보내지 못했습니다 (${m}). 페이지 이미지를 쓰세요.`,
         copied: "클립보드에 복사됨", copyFailed: "복사가 막혔습니다. 이미지를 우클릭하세요",
@@ -367,12 +371,31 @@ async function pageShots(o) {
   } finally { task.destroy(); }
   return out;
 }
+// Claude saves a download under the last segment of the uri, as written: percent-escapes stay literally
+// ("%ED%95..."), and % : " * < > | ~ \ become "_". So keep the name literal and drop only unsafe characters.
+export const fileUri = name => "file:///" + String(name).replace(/[\\/%:"*<>|~?#\x00-\x1f]/g, "_");
+// Claude documents ui/message as text only (at most 8,000 characters) and may refuse other blocks,
+// so a file or image cannot go to the chat there even if a capability says otherwise.
+const isClaude = () => /claude|anthropic/i.test(app.getHostVersion()?.name || "");
+const MSG_LIMIT = 8000;
+function canSend(kind, chars) {
+  const m = caps().message || {};
+  if (!m[kind]) return false;
+  return !(isClaude() && chars > MSG_LIMIT);
+}
+function hostLine() {
+  const h = app.getHostVersion(), m = caps().message || {};
+  return t("hostLine", [h?.name, h?.version].filter(Boolean).join(" ") || "?", !!caps().downloadFile, Object.keys(m).join(", ") || "-");
+}
 function showOut(o, shots, reason) {
   last = { o, shots };
-  const isPdf = o.mime === "application/pdf", m = caps().message || {};
-  $("outWhy").textContent = t("outWhy", reason) + " " + (isPdf ? t("outHintPdf") : t("outHint"));
-  $("sendPdf").hidden = !(isPdf && m.resource);
-  $("sendImg").hidden = !m.image;
+  const isPdf = o.mime === "application/pdf";
+  const pdfOk = isPdf && canSend("resource", Math.ceil(o.bytes.length / 3) * 4);
+  const imgOk = canSend("image", shots.reduce((n, sh) => n + sh.url.length, 0));
+  $("outWhy").textContent = t("outWhy", reason) + " " + (isPdf ? (pdfOk ? t("outHintPdf") : t("outHintPdfNoSend")) : t("outHint"));
+  $("outHost").textContent = hostLine();
+  $("sendPdf").hidden = !pdfOk;
+  $("sendImg").hidden = !imgOk;
   $("sendImg").dataset.i18n = isPdf ? "sendPages" : "send"; $("sendImg").textContent = t($("sendImg").dataset.i18n);
   const box = $("outShots"); box.textContent = "";
   for (const sh of shots) {
@@ -396,7 +419,7 @@ $("sendPdf").onclick = async () => {
   if (!last) return; const { o } = last;
   try {
     const r = await app.sendMessage({ role: "user", content: [
-      { type: "resource", resource: { uri: "file:///" + encodeURIComponent(o.name), mimeType: o.mime, blob: toB64(o.bytes) } },
+      { type: "resource", resource: { uri: fileUri(o.name), mimeType: o.mime, blob: toB64(o.bytes) } },
       { type: "text", text: t("sentText", o.name) }] });
     if (r?.isError) throw new Error(t("rejected"));
     log("sent"); summary("sent the stamped PDF to the chat");
@@ -421,10 +444,11 @@ $("export").onclick = async () => {
     let reason = t("noDownload");
     if (caps().downloadFile) {
       try {
-        const r = await app.downloadFile({ contents: [{ type: "resource", resource: { uri: "file:///" + encodeURIComponent(o.name), mimeType: o.mime, blob: o.b64 || toB64(o.bytes) } }] });
+        // Claude keeps its "Download file" dialog open with no time limit; the SDK default (60 s) would give up early
+        const r = await app.downloadFile({ contents: [{ type: "resource", resource: { uri: fileUri(o.name), mimeType: o.mime, blob: o.b64 || toB64(o.bytes) } }] }, { timeout: 600_000 });
         if (!r?.isError) { log("exported", o.name); summary("exported it"); return; }
         reason = t("denied");
-      } catch (ex) { reason = ex.message; }
+      } catch (ex) { reason = /timed? ?out/i.test(ex.message) ? t("dlTimeout") : ex.message; }
     }
     showOut(o, await pageShots(o), reason); log("useBelow");
   } catch (ex) { err("failed", ex.message); }
